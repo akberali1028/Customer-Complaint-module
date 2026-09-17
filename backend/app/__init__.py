@@ -1,0 +1,1 @@
+"""Aivoa FastAPI application."""

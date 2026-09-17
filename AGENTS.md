@@ -16,9 +16,10 @@ auto-fills the form and answers questions about the complaint.
 - Backend: Python + FastAPI
 - Agent orchestration: **LangGraph** (`StateGraph`, real nodes/edges — not an ad hoc loop dressed
   up as an "agent")
-- LLM: Groq `gemma2-9b-it` as the default model for every node. Fall back to
-  `llama-3.3-70b-versatile` only for a node that needs a larger context window or is
-  underperforming on `gemma2-9b-it` — don't default to the bigger model everywhere.
+- LLM: Groq `openai/gpt-oss-20b` as the default model for every node. Use
+  `openai/gpt-oss-120b` only when strict structured extraction fails validation or a
+  higher-confidence risk assessment is needed — don't default to the bigger model everywhere.
+  (These replace the originally specified Groq models, which have since been deprecated.)
 - DB: Postgres (or MySQL)
 - Font: Google Inter
 - No production-grade OCR/document parsing — a naive text extractor for fabricated sample
