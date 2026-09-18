@@ -15,3 +15,6 @@ export type IntakeResponse = {
   input_type: "text" | "email"; fields: ComplaintFields; risk_assessment: RiskAssessment;
   used_fallback_model: boolean; missing_fields: string[];
 };
+
+export type FieldUpdate = { field_name: keyof ComplaintFields; value: string };
+export type ChatResponse = { answer: string; updates: FieldUpdate[]; risk_assessment: RiskAssessment | null };

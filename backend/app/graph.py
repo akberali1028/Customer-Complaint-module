@@ -6,11 +6,13 @@ from langgraph.graph import END, START, StateGraph
 
 from .llm import DEFAULT_MODEL, FALLBACK_MODEL, structured_completion
 from .models import ComplaintFields, RiskAssessment
+from .parser import extract_document_text
 
 
 class ComplaintState(TypedDict, total=False):
     raw_input: str
-    input_type: Literal["text", "email"]
+    input_type: Literal["text", "email", "pdf", "docx", "txt", "eml"]
+    file_content: bytes
     parsed_text: str
     extracted_fields: dict[str, str | None]
     missing_fields: list[str]
@@ -39,9 +41,22 @@ CRITICAL_EXTRACTION_FIELDS = (
 
 
 def intake_router(state: ComplaintState) -> ComplaintState:
+    if state.get("input_type") in {"pdf", "docx", "txt", "eml"}:
+        return {"input_type": state["input_type"]}
     text = state["raw_input"].strip()
     is_email = "\nfrom:" in text.lower() or "\nsubject:" in text.lower()
     return {"input_type": "email" if is_email else "text", "parsed_text": text}
+
+
+def route_to_parser(state: ComplaintState) -> Literal["document_parser", "field_extraction"]:
+    return "document_parser" if state["input_type"] in {"pdf", "docx", "txt", "eml"} else "field_extraction"
+
+
+def document_parser(state: ComplaintState) -> ComplaintState:
+    parsed_text = extract_document_text(state["file_content"], state["input_type"])
+    if not parsed_text:
+        raise ValueError("No readable text was found in the uploaded document.")
+    return {"parsed_text": parsed_text}
 
 
 async def field_extraction(state: ComplaintState) -> ComplaintState:
@@ -86,7 +101,7 @@ async def severity_priority_assessment(state: ComplaintState) -> ComplaintState:
         system_prompt=RISK_PROMPT,
         user_prompt=str(state["extracted_fields"]),
         schema=RiskAssessment,
-        model=DEFAULT_MODEL,
+        model=FALLBACK_MODEL,
     )
     return {"risk_assessment": assessment.model_dump()}
 
@@ -94,11 +109,16 @@ async def severity_priority_assessment(state: ComplaintState) -> ComplaintState:
 def build_intake_graph():
     graph = StateGraph(ComplaintState)
     graph.add_node("intake_router", intake_router)
+    graph.add_node("document_parser", document_parser)
     graph.add_node("field_extraction", field_extraction)
     graph.add_node("extraction_fallback", extraction_fallback)
     graph.add_node("severity_priority_assessment", severity_priority_assessment)
     graph.add_edge(START, "intake_router")
-    graph.add_edge("intake_router", "field_extraction")
+    graph.add_conditional_edges(
+        "intake_router", route_to_parser,
+        {"document_parser": "document_parser", "field_extraction": "field_extraction"},
+    )
+    graph.add_edge("document_parser", "field_extraction")
     graph.add_conditional_edges(
         "field_extraction",
         needs_fallback,

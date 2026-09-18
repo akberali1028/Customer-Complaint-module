@@ -26,22 +26,23 @@ async def structured_completion(
     *, system_prompt: str, user_prompt: str, schema: type[ModelT], model: str = DEFAULT_MODEL
 ) -> ModelT:
     """Request schema-constrained JSON and validate it before graph state is updated."""
-    completion = await _client().chat.completions.create(
-        model=model,
-        temperature=0,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": schema.__name__,
-                "strict": True,
-                "schema": schema.model_json_schema(),
+    async with _client() as client:
+        completion = await client.chat.completions.create(
+            model=model,
+            temperature=0,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema.__name__,
+                    "strict": True,
+                    "schema": schema.model_json_schema(),
+                },
             },
-        },
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
     content = completion.choices[0].message.content
     if not content:
         raise ValueError("The model returned no structured content.")

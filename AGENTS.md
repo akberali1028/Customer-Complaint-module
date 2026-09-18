@@ -34,7 +34,7 @@ React/Redux (chat + form UI)
 FastAPI endpoint
       │  invokes
       ▼
-LangGraph StateGraph  ──►  Groq (gemma2-9b-it / llama-3.3-70b-versatile)
+LangGraph StateGraph  ──►  Groq (openai/gpt-oss-20b / openai/gpt-oss-120b)
       │  returns structured ComplaintState
       ▼
 FastAPI response ──► Redux store ──► form fields populate ──► user saves ──► Postgres/MySQL
